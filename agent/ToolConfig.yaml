@@ -1,0 +1,25 @@
+tools:
+  - class_name: "enter_value_tool.EnterValueTool"
+    config:
+      type: native
+    tool_schema:
+      type: "function"
+      function:
+        name: "enter_value"
+        description: "Updates a single grid cell with a value deduced from puzzle clues."
+        parameters:
+          type: "object"
+          properties:
+            house_number:
+              type: "integer"
+              description: "House number (1-indexed)"
+            attribute:
+              type: "string"
+              description: "Attribute name"
+            value:
+              type: "string"
+              description: "Value to assign"
+          required:
+            - "house_number"
+            - "attribute"
+            - "value"
