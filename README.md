@@ -11,13 +11,13 @@ offer an advantage over **outcome rewards**, which provide a single reward for t
 
 The experiments use ZebraLogic puzzles and compare four training configurations:
 
-1. **Single-turn GRPO** — the model generates a complete solution in one generation pass and receives an outcome-based reward.
+1. **Single-turn GRPO** - the model generates a complete solution in one generation pass and receives an outcome-based reward.
 
-2. **Multi-turn GRPO with scalar-broadcast advantages** — the model solves the puzzle incrementally through structured tool calls, with process rewards assigned to individual cell insertions.
+2. **Multi-turn GRPO with scalar-broadcast advantages** - the model solves the puzzle incrementally through structured tool calls, with process rewards assigned to individual cell insertions.
 
-3. **Multi-turn GRPO with cell-identity normalization** — the same multi-turn setup using a different advantage computation scheme, where rewards are normalized according to the identity of the cell being inserted.
+3. **Multi-turn GRPO with cell-identity normalization** - the same multi-turn setup using a different advantage computation scheme, where rewards are normalized according to the identity of the cell being inserted.
 
-4. **Base-initialized cell-identity GRPO** — the cell-identity formulation trained directly from the base model without supervised fine-tuning initialization.
+4. **Base-initialized cell-identity GRPO** - the cell-identity formulation trained directly from the base model without supervised fine-tuning initialization.
 
 The multi-turn configurations use an external grid tool that allows the
 model to modify the puzzle state one cell at a time. This provides a
@@ -46,6 +46,36 @@ zebralogic_rl/
 │   └── process/           # Process-reward GRPO training
 └── sft/                   # Supervised fine-tuning
 
+## Tech Stack
+
+| **Component**          | **Choice**                                         |
+| ---------------------- | -------------------------------------------------- |
+| LLM                    | Qwen3-4B                                           |
+| Reinforcement learning | verl (modified version)                            |
+| Fine-tuning            | LoRA adapters                                      |
+| Inference              | vLLM                                               |
+| Experiment tracking    | Weights & Biases                                   |
+| Job scheduling         | SLURM                                              |
+| Dataset                | ZebraLogic                                         |
+| Data format            | Parquet                                            |
+
+## Reward Design
+
+The experiments use two reward formulations:
+
+| **Reward Type** | **Description**                                                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Outcome Reward  | A reward based on the correctness of the final puzzle solution in the single-turn setup.                                        |
+| Process Reward  | Rewards are assigned to individual cell insertions in the multi-turn setup based on the correctness of each intermediate state. |
+
+Two advantage formulations are investigated for the process-reward setup:
+
+* **Scalar broadcast** - the scalar reward is broadcast across the relevant actions.
+* **Cell-identity normalization** - rewards are normalized according to the identity of the cell being inserted.
+
+The process-reward configurations are compared against the single-turn outcome-reward baseline to determine whether finer-grained feedback improves puzzle-solving performance.
+
+
 ## Installation
 
 Create and activate the environment, then install the required packages:
@@ -63,16 +93,16 @@ The repository includes the datasets required for training and evaluation.
 
 ### Supervised Fine-Tuning
 
-- `sft/SFT_Train_final_split.parquet` — training data for SFT.
-- `sft/SFT_Val_final.parquet` — validation data for SFT.
+- `sft/SFT_Train_final_split.parquet` - training data for SFT.
+- `sft/SFT_Val_final.parquet` - validation data for SFT.
 
 ### Outcome-Reward GRPO
 
-- `rl/outcome/FINALGRPOBaseline.parquet` — data used for the outcome-reward GRPO setup.
+- `rl/outcome/FINALGRPOBaseline.parquet` - data used for the outcome-reward GRPO setup.
 
 ### Evaluation
 
-- `evaluation/eval_zebralogic.parquet` — ZebraLogic evaluation dataset.
+- `evaluation/eval_zebralogic.parquet` - ZebraLogic evaluation dataset.
 
 The provided training and evaluation scripts reference these datasets through their configured paths. Update the paths in the scripts or SLURM files.
 
