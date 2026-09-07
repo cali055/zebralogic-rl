@@ -35,3 +35,125 @@ all process-based configurations. Process rewards therefore did not
 provide a measurable performance benefit, although supervised
 initialization substantially improved the ability of the model to
 operate in the multi-turn environment.
+
+## Project Structure
+zebralogic_rl/
+├── agent/                 # Multi-turn puzzle-solving agent and tool configuration
+├── evaluation/            # Evaluation scripts and ZebraLogic evaluation data
+├── merge/                 # Scripts for merging trained LoRA checkpoints
+├── rl/
+│   ├── outcome/           # Outcome-reward GRPO training
+│   └── process/           # Process-reward GRPO training
+└── sft/                   # Supervised fine-tuning
+
+## Installation
+
+Create and activate the environment, then install the required packages:
+
+```bash
+pip install -r requirements.txt
+```
+
+The `requirements.txt` file includes the pinned dependencies used for the experiments, including the modified `verl` version used by this project.
+
+
+## Data Setup
+
+The repository includes the datasets required for training and evaluation.
+
+### Supervised Fine-Tuning
+
+- `sft/SFT_Train_final_split.parquet` — training data for SFT.
+- `sft/SFT_Val_final.parquet` — validation data for SFT.
+
+### Outcome-Reward GRPO
+
+- `rl/outcome/FINALGRPOBaseline.parquet` — data used for the outcome-reward GRPO setup.
+
+### Evaluation
+
+- `evaluation/eval_zebralogic.parquet` — ZebraLogic evaluation dataset.
+
+The provided training and evaluation scripts reference these datasets through their configured paths. Update the paths in the scripts or SLURM files.
+
+### Outcome-Reward GRPO
+
+The outcome-reward experiment uses single-turn GRPO, where the model generates a complete puzzle solution and receives an outcome-based reward based on the final solution.
+
+Run the training job with:
+
+```bash
+sbatch rl/outcome/grpo_a100.sbatch
+```
+
+After training, merge the GRPO checkpoint:
+
+```bash
+sbatch merge/merge_grpo.sbatch
+```
+
+The resulting merged model can then be evaluated using the single-turn evaluation script:
+
+```bash
+python evaluation/eval_singleturn.py --model <model-path>
+```
+
+### Process-Reward GRPO
+
+The process-reward experiments use a multi-turn setup in which the model solves puzzles incrementally through structured tool calls. The model is first initialized using supervised fine-tuning before process-reward GRPO training.
+
+Run the SFT training job:
+
+```bash
+sbatch sft/run_multisft.sbatch
+```
+
+Merge the SFT checkpoint:
+
+```bash
+sbatch merge/merge_sft.sbatch
+```
+
+Run process-reward GRPO using either advantage formulation:
+
+```bash
+sbatch rl/process/grpo_process_advantagevanilla.sbatch
+```
+
+or:
+
+```bash
+sbatch rl/process/grpo_process_advantagecellnormalized.sbatch
+```
+
+After GRPO training, merge the resulting checkpoint:
+
+```bash
+sbatch merge/merge_grpo.sbatch
+```
+
+Finally, evaluate the trained model:
+
+```bash
+sbatch evaluation/eval_multiturn.sbatch
+```
+## Results
+
+The experiments compared four training configurations:
+
+| Configuration                                 | Cell Accuracy | Puzzle Accuracy |
+| --------------------------------------------- | ------------: | --------------: |
+| Single-turn GRPO (Outcome Reward)             |        84.37% |          82.90% |
+| Multi-turn GRPO (Scalar Broadcast)            |        75.51% |          71.40% |
+| Multi-turn GRPO (Cell-Identity Normalization) |        73.09% |          71.00% |
+| Base-Initialized Cell-Identity GRPO           |        60.62% |          66.00% |
+
+Under the experimental conditions of this thesis, the single-turn outcome-reward configuration achieved the best performance. Process rewards did not provide a measurable benefit over the outcome-reward baseline.
+
+## Conclusion
+
+The experiments show that process rewards did not provide a measurable improvement over outcome rewards for ZebraLogic puzzle solving under the conditions studied.
+
+The single-turn outcome-reward GRPO configuration achieved the highest performance, while the multi-turn process-reward configurations performed lower. Supervised fine-tuning was necessary for the multi-turn setup to operate reliably, but it did not overcome the limitations of the process-reward approach.
+
+Overall, the results suggest that providing finer-grained process feedback alone is not sufficient to improve performance when the model has not learned the underlying behaviors required for effective multi-step tool-based reasoning. The model has a general bias to solve these types of puzzles in a way due to which we have to use another model or bigger training budget.
